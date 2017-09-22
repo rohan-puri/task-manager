@@ -185,6 +185,111 @@ int task3_fn(task_common_ctx_t *task_common_ctx, void *priv_data)
 	return 0;
 }
 
+int task1_handler(char *cmd_args[], int no_of_args, task_node_t *task_node)
+{
+	int		rc = 0;
+	t1_priv_t	*task1_private_data = malloc(sizeof(t1_priv_t));
+
+	if(!task1_private_data) {
+		fprintf(stderr, "ERR: Memory allocation failed for t1_priv_t\n");
+		rc = -ENOMEM;
+		goto out;
+	}
+
+	if (no_of_args != NO_OF_ARGS_FOR_TASK1) {
+		fprintf(stderr, "ERR: No of args expected for task1 are %d, "
+				"while given are %d\n", NO_OF_ARGS_FOR_TASK1, no_of_args);
+		rc = -EINVAL;
+		goto out;
+	}
+
+	task_node->tn_task_fn = task1_fn;
+	/**
+	 * cmd_args[4] -> task1 specific args1
+	 */
+	task1_private_data->t1_args1 = atoi(cmd_args[4]);
+	task_node->tn_private_data = task1_private_data;
+
+out:
+	return rc;
+}
+
+int task2_handler(char *cmd_args[], int no_of_args, task_node_t *task_node)
+{
+	int		rc = 0;
+	t2_priv_t	*task2_private_data = malloc(sizeof(t2_priv_t));
+
+	if(!task2_private_data) {
+		fprintf(stderr, "ERR: Memory allocation failed for t2_priv_t\n");
+		rc = -ENOMEM;
+		goto out;
+	}
+
+	if (no_of_args != NO_OF_ARGS_FOR_TASK2) {
+		fprintf(stderr, "ERR: No of args expected for task2 are %d, "
+				"while given are %d\n", NO_OF_ARGS_FOR_TASK2, no_of_args);
+		rc = -EINVAL;
+		goto out;
+	}
+
+	task_node->tn_task_fn = task2_fn;
+	/**
+	 * cmd_args[4] -> task2 specific args1
+	 */
+	task2_private_data->t2_args1 = atoi(cmd_args[4]);
+	/**
+	 * cmd_args[5] -> task2 specific args2
+	 */
+	task2_private_data->t2_args2 = atoi(cmd_args[5]);
+	task_node->tn_private_data = task2_private_data;
+
+out:
+	return rc;
+}
+
+int task3_handler(char *cmd_args[], int no_of_args, task_node_t *task_node)
+{
+	int		rc = 0;
+	t3_priv_t	*task3_private_data = malloc(sizeof(t3_priv_t));
+
+	if(!task3_private_data) {
+		fprintf(stderr, "ERR: Memory allocation failed for t3_priv_t\n");
+		rc = -ENOMEM;
+		goto out;
+	}
+
+	if (no_of_args != NO_OF_ARGS_FOR_TASK3) {
+		fprintf(stderr, "ERR: No of args expected for task3 are %d, "
+				"while given are %d\n", NO_OF_ARGS_FOR_TASK3, no_of_args);
+		rc = -EINVAL;
+		goto out;
+	}
+
+	task_node->tn_task_fn = task3_fn;
+	/**
+	 * cmd_args[4] -> task3 specific args1
+	 */
+	task3_private_data->t3_args1 = atoi(cmd_args[4]);
+	/**
+	 * cmd_args[5] -> task3 specific args2
+	 */
+	task3_private_data->t3_args2 = atoi(cmd_args[5]);
+	/**
+	 * cmd_args[6] -> task3 specific args3
+	 */
+	task3_private_data->t3_args3 = atoi(cmd_args[6]);
+	task_node->tn_private_data = task3_private_data;
+
+out:
+	return rc;
+}
+
+task_type_handler_t task_type_table[NO_OF_TASK_TYPES] = {
+		{"task1", task1_handler},
+		{"task2", task2_handler},
+		{"task3", task3_handler},
+};
+
 /**
  * Command line input to add_task is as follows:
  * add task_type priority timer [args1..argsn]
@@ -245,7 +350,6 @@ int add_task(char *cmd_args[], int no_of_args, int efd)
 	 */
 	task_common_ctx->tcc_timer = atoi(cmd_args[cmd_idx++]);
 
-
 	task_node = malloc(sizeof(task_node_t));
 
 	if (!task_node) {
@@ -260,87 +364,20 @@ int add_task(char *cmd_args[], int no_of_args, int efd)
 	 */
 	task_node->tn_tfd = -1;
 
-	if (strcmp("task1", cmd_args[1]) == 0) {
-		task1_private_data = malloc(sizeof(t1_priv_t));
-
-		if(!task1_private_data) {
-			fprintf(stderr, "ERR: Memory allocation failed for t1_priv_t\n");
-			rc = -ENOMEM;
-			goto out;
+	for (i = 0; i < NO_OF_TASK_TYPES; i++) {
+		if (strncmp(cmd_args[1], task_type_table[i].task_type_name,
+					strlen(task_type_table[i].task_type_name)) == 0 ) {
+//			rc = cmd_table[i].task_type_handler(cmd_args, no_of_tokens);
+			rc = task_type_table[i].task_type_handler(cmd_args,
+								  no_of_args,
+								  task_node);
+			if (rc) {
+				fprintf(stderr, "ERR: cmd:%s failed with rc:%d\n",
+						cmd_args[0], rc);
+			}
+			break;
 		}
-
-		if (no_of_args != NO_OF_ARGS_FOR_TASK1) {
-			fprintf(stderr, "ERR: No of args expected for task1 are %d, "
-				"while given are %d\n", NO_OF_ARGS_FOR_TASK1, no_of_args);
-			rc = -EINVAL;
-			goto out;
-		}
-
-		task_node->tn_task_fn = task1_fn;
-		/**
-		 * cmd_args[4] -> task1 specific args1
-		 */
-		task1_private_data->t1_args1 = atoi(cmd_args[cmd_idx++]);
-		task_node->tn_private_data = task1_private_data;
-	} else if (strcmp("task2", cmd_args[1]) == 0) {
-		task2_private_data = malloc(sizeof(t2_priv_t));
-
-		if(!task2_private_data) {
-			fprintf(stderr, "ERR: Memory allocation failed for t2_priv_t\n");
-			rc = -ENOMEM;
-			goto out;
-		}
-
-		if (no_of_args != NO_OF_ARGS_FOR_TASK2) {
-			fprintf(stderr, "ERR: No of args expected for task2 are %d, "
-				"while given are %d\n", NO_OF_ARGS_FOR_TASK2, no_of_args);
-			rc = -EINVAL;
-			goto out;
-		}
-
-		task_node->tn_task_fn = task2_fn;
-
-		/**
-		 * cmd_args[4] -> task2 specific args1
-		 */
-		task2_private_data->t2_args1 = atoi(cmd_args[cmd_idx++]);
-		/**
-		 * cmd_args[5] -> task2 specific args2
-		 */
-		task2_private_data->t2_args2 = atoi(cmd_args[cmd_idx++]);
-		task_node->tn_private_data = task2_private_data;
-	} else if (strcmp("task3", cmd_args[1]) == 0) {
-		task3_private_data = malloc(sizeof(t3_priv_t));
-
-		if(!task3_private_data) {
-			fprintf(stderr, "ERR: Memory allocation failed for t3_priv_t\n");
-			rc = -ENOMEM;
-			goto out;
-		}
-
-		if (no_of_args != NO_OF_ARGS_FOR_TASK3) {
-			fprintf(stderr, "ERR: No of args expected for task3 are %d, "
-				"while given are %d\n", NO_OF_ARGS_FOR_TASK3, no_of_args);
-			rc = -EINVAL;
-			goto out;
-		}
-
-		task_node->tn_task_fn = task3_fn;
-		/**
-		 * cmd_args[4] -> task3 specific args1
-		 */
-		task3_private_data->t3_args1 = atoi(cmd_args[cmd_idx++]);
-		/**
-		 * cmd_args[4] -> task3 specific args2
-		 */
-		task3_private_data->t3_args2 = atoi(cmd_args[cmd_idx++]);
-		/**
-		 * cmd_args[4] -> task3 specific args3
-		 */
-		task3_private_data->t3_args3 = atoi(cmd_args[cmd_idx++]);
-		task_node->tn_private_data = task3_private_data;
 	}
-
 	/**
 	 * If a scheduling timer is provided,
 	 * queue to blocking queue, instead of ready queue.
@@ -418,9 +455,11 @@ int add_task(char *cmd_args[], int no_of_args, int efd)
 	goto out;
 
 timerfd_out:
+#if 0
 	free(task3_private_data);
 	free(task2_private_data);
 	free(task1_private_data);
+#endif
 	free(task_node);
 	free(task_common_ctx);
 out:

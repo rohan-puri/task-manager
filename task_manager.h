@@ -3,6 +3,7 @@
 
 #define CMD_LINE_LEN			(100)
 #define NO_OF_CMDS			(3)
+#define NO_OF_TASK_TYPES		(3)
 #define CMD_NAME_LEN			(10)
 #define THREAD_EXEC_DELAY		(45)	/** This value is in seconds */
 #define READY_PRIORITY_MAX_QUEUE_DEPTH	(100)
@@ -71,6 +72,11 @@ typedef struct {
 	char	*ch_cmd_name;
 	int 	(*ch_cmd_handler) (char *cmd_args[], int no_of_args, int efd);
 } cmd_handler_t;
+
+typedef struct {
+	char	*task_type_name;
+	int 	(*task_type_handler) (char *cmd_args[], int no_of_args, task_node_t *task_node);
+} task_type_handler_t;
 
 #endif /** TASK_MANAGER_H */
 
