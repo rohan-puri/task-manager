@@ -616,17 +616,14 @@ int main(void)
 	epoll_ctl(efd, EPOLL_CTL_ADD, 0, &event);
 
 	for (;;) {
-		//fprintf(stderr, "Going into epoll_wait\n");
 		fprintf(stdout, "Enter command to run\n");
 		fprintf(stdout, "Currently supported commands [add, list, test]\n");
 		epoll_wait(efd, &event, 1, -1);
-		//fprintf(stderr, "Going into read for fd: %d\n", event.data.fd);
 
 		if (event.data.fd != 0) {
 			task_node_t	*task = NULL;
 			task_node_t	*task_next = NULL;
 
-		//	fprintf(stdout, "Got data on fd:%d\n", event.data.fd);
 			read(event.data.fd, cmd_line, sizeof(cmd_line));
 			/**
 			 * Since timer is triggered for this timerfd,
@@ -665,8 +662,6 @@ int main(void)
 		} else {
 			read(0, cmd_line, sizeof(cmd_line));
 
-			//printf("cmdline: %s\n", cmd_line);
-
 			i = 0;
 			token = strtok(cmd_line, " ");
 			no_of_tokens = 0;
@@ -676,8 +671,6 @@ int main(void)
 				token = strtok(NULL, " ");
 
 			}
-
-			//fprintf(stderr, "cmd_name: %s\n", cmd_args[0]);
 
 			for (i = 0; i < NO_OF_CMDS; i++) {
 				if (strncmp(cmd_args[0], cmd_table[i].ch_cmd_name,
