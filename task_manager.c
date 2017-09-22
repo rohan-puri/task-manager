@@ -30,7 +30,6 @@ pthread_cond_t			ready_priority_queue_not_empty_cond;
 struct task_bq		g_task_blocking_queue;
 pthread_mutex_t		blocking_queue_mutex;
 
-
 int ready_priority_queue_init(task_ready_priority_queue_t *task_ready_pq,
 			      int size)
 {
@@ -624,7 +623,10 @@ int main(void)
 			task_node_t	*task = NULL;
 			task_node_t	*task_next = NULL;
 
-			read(event.data.fd, cmd_line, sizeof(cmd_line));
+			/**
+			 * Remove this timer_fd from the epoll watch list
+			 */
+			epoll_ctl(efd, EPOLL_CTL_DEL, event.data.fd, NULL);
 			/**
 			 * Since timer is triggered for this timerfd,
 			 * we need to dequeue task from blocking queue &
