@@ -54,18 +54,6 @@ int ready_priority_queue_is_empty(task_ready_priority_queue_t *task_ready_pq)
 	return (task_ready_pq->trpq_no_of_elements == 0);
 }
 
-#if 0
-void dump_priority_arr(task_ready_priority_queue_t *task_ready_pq)
-{
-	int i = 0;
-
-	for (i = 0; i < task_ready_pq->trpq_no_of_elements; i++) {
-		fprintf(stderr, "%d ", task_ready_pq->trpq_task_arr[i]->tn_task_common_ctx->tcc_priority);
-	}
-	fprintf(stderr, "\n");
-}
-#endif
-
 int ready_priority_queue_insert(task_ready_priority_queue_t *task_ready_pq,
 				task_node_t *task_node)
 {
@@ -164,11 +152,13 @@ void task_yield(void)
 	int		 rc = -1;
 
 	pthread_mutex_lock(&ready_priority_queue_mutex);
-	rc = ready_priority_queue_insert(&g_task_ready_priority_queue, thread_info->running_task);
+	rc = ready_priority_queue_insert(&g_task_ready_priority_queue,
+					 thread_info->running_task);
 	assert(rc == 0);
 	pthread_mutex_unlock(&ready_priority_queue_mutex);
 	thread_info->running_task->tn_task_common_ctx->tcc_state = TASK_YIELD;
-	swapcontext(&thread_info->running_task->tn_context, &thread_info->thread_context);
+	swapcontext(&thread_info->running_task->tn_context,
+		    &thread_info->thread_context);
 }
 
 void task_exit(void)
@@ -177,13 +167,15 @@ void task_exit(void)
 
 	thread_info->running_task->tn_task_common_ctx->tcc_state = TASK_COMPLETED;
 	total_tasks_executed++;
-	swapcontext(&thread_info->running_task->tn_context, &thread_info->thread_context);
+	swapcontext(&thread_info->running_task->tn_context,
+		    &thread_info->thread_context);
 }
 
 void task1_fn(task_common_ctx_t *task_common_ctx, void *priv_data)
 {
 
-	fprintf(stdout, "TASK1:  1, priority: %d\n", task_common_ctx->tcc_priority);
+	fprintf(stdout, "TASK1:  1, priority: %d\n",
+		task_common_ctx->tcc_priority);
 	/**
 	 * Simulate task1 completion time.
 	 */
@@ -191,7 +183,8 @@ void task1_fn(task_common_ctx_t *task_common_ctx, void *priv_data)
 
 	task_yield();
 
-	fprintf(stdout, "TASK1: 2, priority: %d\n", task_common_ctx->tcc_priority);
+	fprintf(stdout, "TASK1: 2, priority: %d\n",
+		task_common_ctx->tcc_priority);
 
 	task_exit();
 }
@@ -200,7 +193,7 @@ void task2_fn(task_common_ctx_t *task_common_ctx, void *priv_data)
 {
 	fprintf(stdout, "TASK2:  1\n");
 	/**
-	 * Simulate task1 completion time.
+	 * Simulate task2 completion time.
 	 */
 	sleep(4);
 
@@ -213,7 +206,7 @@ void task2_fn(task_common_ctx_t *task_common_ctx, void *priv_data)
 void task3_fn(task_common_ctx_t *task_common_ctx, void *priv_data)
 {
 	/**
-	 * Simulate task1 completion time.
+	 * Simulate task2 completion time.
 	 */
 	sleep(8);
 
@@ -233,7 +226,8 @@ int task1_handler(char *cmd_args[], int no_of_args, task_node_t *task_node)
 
 	if (no_of_args != NO_OF_ARGS_FOR_TASK1) {
 		fprintf(stderr, "ERR: No of args expected for task1 are %d, "
-				"while given are %d\n", NO_OF_ARGS_FOR_TASK1, no_of_args);
+				"while given are %d\n", NO_OF_ARGS_FOR_TASK1,
+				 no_of_args);
 		rc = -EINVAL;
 		goto out;
 	}
@@ -262,7 +256,8 @@ int task2_handler(char *cmd_args[], int no_of_args, task_node_t *task_node)
 
 	if (no_of_args != NO_OF_ARGS_FOR_TASK2) {
 		fprintf(stderr, "ERR: No of args expected for task2 are %d, "
-				"while given are %d\n", NO_OF_ARGS_FOR_TASK2, no_of_args);
+				"while given are %d\n", NO_OF_ARGS_FOR_TASK2,
+				 no_of_args);
 		rc = -EINVAL;
 		goto out;
 	}
@@ -414,7 +409,7 @@ out:
  * add task_type priority timer [args1..argsn]
  * args1 to argsn vary according to task_type.
  */
-int add_task(char *cmd_args[], int no_of_args, int efd)
+int add_task_cmd(char *cmd_args[], int no_of_args, int efd)
 {
 	int			i;
 	int			rc = 0;
@@ -537,19 +532,40 @@ out:
 
 /**
  * List all the tasks that were added to this task manager.
- * This is TODO
  */
-int list_all_tasks(char *cmd_args[], int no_of_args, int efd)
+int list_all_tasks_cmd(char *cmd_args[], int no_of_args, int efd)
 {
+	task_node_t	*task = NULL;
+	int		 i;
 
-	
+	fprintf(stdout, "Listing all the blocking tasks:\n");
+	pthread_mutex_lock(&blocking_queue_mutex);
+	TAILQ_FOREACH(task, &g_task_blocking_queue, tn_blocking_queue) {
+		fprintf(stdout, "Task_type: %s, prio: %d, state: %d\n",
+			task->tn_task_common_ctx->tcc_task_name,
+			task->tn_task_common_ctx->tcc_priority,
+			task->tn_task_common_ctx->tcc_state);
+	}
+	pthread_mutex_unlock(&blocking_queue_mutex);
+
+	fprintf(stdout, "Listing all the ready tasks:\n");
+	pthread_mutex_lock(&ready_priority_queue_mutex);
+	for (i = 0; i < g_task_ready_priority_queue.trpq_no_of_elements; i++) {
+		task = g_task_ready_priority_queue.trpq_task_arr[i];
+		fprintf(stdout, "Task_type: %s, prio: %d, state: %d\n",
+			task->tn_task_common_ctx->tcc_task_name,
+			task->tn_task_common_ctx->tcc_priority,
+			task->tn_task_common_ctx->tcc_state);
+	}
+	pthread_mutex_unlock(&ready_priority_queue_mutex);
+
 	return 0;
 }
 
 /**
  * Run a basic test
  */
-int test(char *cmd_args[], int no_of_args, int efd)
+int test_cmd(char *cmd_args[], int no_of_args, int efd)
 {
 	int	i;
 	char	*add_task1_args[5];
@@ -575,7 +591,7 @@ int test(char *cmd_args[], int no_of_args, int efd)
 		/** Set first args1 */
 		sprintf(add_task1_args[4], "%d", i + 1);
 
-		add_task(add_task1_args, 5, efd); 
+		add_task_cmd(add_task1_args, 5, efd); 
 	}
 
 	/** Add sleep for tasks to be completed */
@@ -586,9 +602,9 @@ int test(char *cmd_args[], int no_of_args, int efd)
 }
 
 cmd_handler_t cmd_table[NO_OF_CMDS] = {
-		{"add", add_task},
-		{"list", list_all_tasks},
-		{"test", test},
+		{"add", add_task_cmd},
+		{"list", list_all_tasks_cmd},
+		{"test", test_cmd},
 };
 
 void *task_executor(void *args)
@@ -616,7 +632,6 @@ void *task_executor(void *args)
 	getcontext(&thread_info->thread_context);
 
 	while (1) {
-
 		pthread_mutex_lock(&ready_priority_queue_mutex);
 
 		while (ready_priority_queue_is_empty(&g_task_ready_priority_queue)) {

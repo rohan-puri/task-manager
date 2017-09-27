@@ -26,7 +26,7 @@ typedef struct {
 } t3_priv_t;
 
 typedef enum {
-	TASK_BLOCKED = 0,
+	TASK_BLOCKED = 1,
 	TASK_READY,
 	TASK_RUNNING,
 	TASK_YIELD,
