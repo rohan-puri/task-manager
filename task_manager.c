@@ -1,6 +1,6 @@
-
 #include "task_manager.h"
 #include "task_manager_cmds.h"
+#include "priority_queue.h"
 
 long	total_tasks_submitted;
 long	total_tasks_executed;
@@ -12,128 +12,22 @@ pthread_key_t	thread_key;
  */
 task_ready_priority_queue_t	g_task_ready_priority_queue;
 
-pthread_mutex_t			ready_priority_queue_mutex;
-pthread_cond_t			ready_priority_queue_not_empty_cond;
-
 /**
  * Global task blocking queue
  */
 struct task_bq		g_task_blocking_queue;
 pthread_mutex_t		blocking_queue_mutex;
 
-int ready_priority_queue_init(task_ready_priority_queue_t *task_ready_pq,
-			      int size)
-{
-	task_ready_pq->trpq_task_arr = malloc(sizeof(task_node_t *) * size);
-	if (!task_ready_pq->trpq_task_arr) {
-		fprintf(stderr, "ERR: Memory alloc for priority queue"
-			"failed\n");
-		return -ENOMEM;
-	}
-	/** In the beginning there are no elements */
-	task_ready_pq->trpq_no_of_elements = 0;
-	task_ready_pq->trpq_size = size;
-
-	return 0;
-}
-
-int ready_priority_queue_is_empty(task_ready_priority_queue_t *task_ready_pq)
-{
-	return (task_ready_pq->trpq_no_of_elements == 0);
-}
-
-int ready_priority_queue_insert(task_ready_priority_queue_t *task_ready_pq,
-				task_node_t *task_node)
-{
-	int i;
-
-	if (task_ready_pq->trpq_no_of_elements == task_ready_pq->trpq_size) {
-		fprintf(stderr, "ERR: Ready Priority queue full with no. of"
-			" tasks: %d\n",
-			task_ready_pq->trpq_no_of_elements);
-		return -EINVAL;
-	}
-	task_ready_pq->trpq_task_arr[task_ready_pq->trpq_no_of_elements] = task_node;
-	i = task_ready_pq->trpq_no_of_elements;
-	task_ready_pq->trpq_no_of_elements++;
-
-	/**
-	 * If priority of new element is greater than its parent, swap with its
-	 * parent
-	 */
-	while ((i > 0) &&
-	       (task_ready_pq->trpq_task_arr[i]->tn_task_common_ctx->tcc_priority
-		> task_ready_pq->trpq_task_arr[PARENT(i)]->tn_task_common_ctx->tcc_priority)) {
-		task_node_t *temp = task_ready_pq->trpq_task_arr[i];
-
-		task_ready_pq->trpq_task_arr[i] = task_ready_pq->trpq_task_arr[PARENT(i)];
-		task_ready_pq->trpq_task_arr[PARENT(i)] = temp;
-		i = PARENT(i);
-	}
-	return 0;
-}
-
-void ready_priority_queue_heapify(task_ready_priority_queue_t *task_ready_pq,
-				  int idx)
-{
-	task_node_t	*temp = NULL;
-	int		 left_idx;
-	int		 right_idx;
-	int		 lr_greater_idx;
-
-	left_idx = LEFT(idx);
-	right_idx = RIGHT(idx);
-
-	if ((left_idx < task_ready_pq->trpq_no_of_elements) &&
-	    (task_ready_pq->trpq_task_arr[left_idx]->tn_task_common_ctx->tcc_priority
-		> task_ready_pq->trpq_task_arr[idx]->tn_task_common_ctx->tcc_priority)) {
-		lr_greater_idx = left_idx;
-	} else {
-		lr_greater_idx = idx;
-	}
-
-	if ((right_idx < task_ready_pq->trpq_no_of_elements) &&
-	    (task_ready_pq->trpq_task_arr[right_idx]->tn_task_common_ctx->tcc_priority
-		> task_ready_pq->trpq_task_arr[lr_greater_idx]->tn_task_common_ctx->tcc_priority)) {
-		lr_greater_idx = right_idx;
-	}
-
-	if (lr_greater_idx != idx) {
-		temp = task_ready_pq->trpq_task_arr[lr_greater_idx];
-		task_ready_pq->trpq_task_arr[lr_greater_idx] = task_ready_pq->trpq_task_arr[idx];
-		task_ready_pq->trpq_task_arr[idx] = temp;
-		ready_priority_queue_heapify(task_ready_pq, lr_greater_idx);
-	}
-}
-
-task_node_t *ready_priority_queue_remove(task_ready_priority_queue_t *task_ready_pq)
-{
-	task_node_t *task = NULL;
-
-	if (task_ready_pq->trpq_no_of_elements < 1) {	
-		fprintf(stderr, "ERR: Task ready priority queue is empty\n");
-		return NULL;
-	}
-	task = task_ready_pq->trpq_task_arr[0];
-	task_ready_pq->trpq_task_arr[0] =
-		task_ready_pq->trpq_task_arr[task_ready_pq->trpq_no_of_elements - 1];
-	task_ready_pq->trpq_no_of_elements--;
-
-	ready_priority_queue_heapify(task_ready_pq, 0);
-
-	return task;
-}
-
 void task_yield(void)
 {
 	thread_info_t	*thread_info = pthread_getspecific(thread_key);
 	int		 rc = -1;
 
-	pthread_mutex_lock(&ready_priority_queue_mutex);
+	ready_priority_queue_lock(&g_task_ready_priority_queue);
 	rc = ready_priority_queue_insert(&g_task_ready_priority_queue,
 					 thread_info->running_task);
 	assert(rc == 0);
-	pthread_mutex_unlock(&ready_priority_queue_mutex);
+	ready_priority_queue_unlock(&g_task_ready_priority_queue);
 	thread_info->running_task->tn_task_common_ctx->tcc_state = TASK_YIELD;
 	swapcontext(&thread_info->running_task->tn_context,
 		    &thread_info->thread_context);
@@ -204,33 +98,6 @@ out:
 	return rc;
 }
 
-int queue_task_to_rq(task_node_t *task_node)
-{
-	int	rc = -1;
-	int	signal = 0;
-
-	/**
-	 * no non-negative timer is specified, put the task
-	 * immediately on ready queue
-	 */
-	task_node->tn_task_common_ctx->tcc_state = TASK_READY;
-	pthread_mutex_lock(&ready_priority_queue_mutex);
-	signal = ready_priority_queue_is_empty(&g_task_ready_priority_queue);
-	rc = ready_priority_queue_insert(&g_task_ready_priority_queue,
-			task_node);
-	pthread_mutex_unlock(&ready_priority_queue_mutex);
-	if (rc) {
-		fprintf(stderr, "ERR: Task insertion in ready pq failed "
-				"with rc: %d\n", rc);
-		goto out;
-	}
-
-	if (signal)
-		pthread_cond_signal(&ready_priority_queue_not_empty_cond);
-
-out:
-	return rc;
-}
 
 
 cmd_handler_t cmd_table[NO_OF_CMDS] = {
@@ -263,11 +130,9 @@ void *task_executor(void *args)
 	getcontext(&thread_info->thread_context);
 
 	while (1) {
-		pthread_mutex_lock(&ready_priority_queue_mutex);
-
+		ready_priority_queue_lock(&g_task_ready_priority_queue);
 		while (ready_priority_queue_is_empty(&g_task_ready_priority_queue)) {
-			pthread_cond_wait(&ready_priority_queue_not_empty_cond,
-					  &ready_priority_queue_mutex);
+			ready_priority_queue_cond_wait(&g_task_ready_priority_queue);
 		}
 
 		/** Get the first task from the ready priority queue to execute */
@@ -277,7 +142,7 @@ void *task_executor(void *args)
 		 * our interaction with the queue is also over,
 		 * so unlock the queue mutex here.
 		 */
-		pthread_mutex_unlock(&ready_priority_queue_mutex);
+		ready_priority_queue_unlock(&g_task_ready_priority_queue);
 
 		//memset(&task_node->tn_context, 0, sizeof(task_node->tn_context));
 
@@ -319,8 +184,6 @@ int globals_init(void)
 		fprintf(stderr, "ERR: PQ INIT failed with rc: %d\n", rc);
 		return rc;
 	}
-	pthread_mutex_init(&ready_priority_queue_mutex, NULL);
-	pthread_cond_init(&ready_priority_queue_not_empty_cond, NULL);
 	TAILQ_INIT(&g_task_blocking_queue);
 	pthread_mutex_init(&blocking_queue_mutex, NULL);
 	pthread_key_create(&thread_key, NULL);
@@ -345,7 +208,7 @@ void timerfd_event_handler(int efd, struct epoll_event *event)
 	 * then enqueue task to ready queue.
 	 */
 	pthread_mutex_lock(&blocking_queue_mutex);
-	pthread_mutex_lock(&ready_priority_queue_mutex);
+	ready_priority_queue_lock(&g_task_ready_priority_queue);
 	for (task = TAILQ_FIRST(&g_task_blocking_queue);
 			task != NULL; task = task_next) {
 		task_next = TAILQ_NEXT(task, tn_blocking_queue);
@@ -365,10 +228,10 @@ void timerfd_event_handler(int efd, struct epoll_event *event)
 		}
 	}
 
-	pthread_mutex_unlock(&ready_priority_queue_mutex);
+	ready_priority_queue_unlock(&g_task_ready_priority_queue);
 	pthread_mutex_unlock(&blocking_queue_mutex);
 	if (signal)
-		pthread_cond_signal(&ready_priority_queue_not_empty_cond);
+		ready_priority_queue_signal(&g_task_ready_priority_queue);
 
 	/**
 	 * Timerfd event handling completed, close the timerfd
