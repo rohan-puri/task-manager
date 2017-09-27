@@ -67,6 +67,8 @@ typedef struct {
 	task_node_t	**trpq_task_arr;
 	int		 trpq_no_of_elements;
 	int		 trpq_size;
+	pthread_mutex_t	 trpq_mutex;
+	pthread_cond_t	 trpq_not_empty_cond;
 } task_ready_priority_queue_t;
 
 #define LEFT(x)		(2 * (x) + 1)

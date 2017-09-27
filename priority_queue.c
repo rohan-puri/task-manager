@@ -1,15 +1,10 @@
-
 #include "priority_queue.h"
-
-
-pthread_mutex_t		ready_priority_queue_mutex;
-pthread_cond_t		ready_priority_queue_not_empty_cond;
 
 int ready_priority_queue_init(task_ready_priority_queue_t *task_ready_pq,
 			      int size)
 {
-	pthread_mutex_init(&ready_priority_queue_mutex, NULL);
-	pthread_cond_init(&ready_priority_queue_not_empty_cond, NULL);
+	pthread_mutex_init(&task_ready_pq->trpq_mutex, NULL);
+	pthread_cond_init(&task_ready_pq->trpq_not_empty_cond, NULL);
 
 	task_ready_pq->trpq_task_arr = malloc(sizeof(task_node_t *) * size);
 	if (!task_ready_pq->trpq_task_arr) {
@@ -113,49 +108,22 @@ task_node_t *ready_priority_queue_remove(task_ready_priority_queue_t *task_ready
 
 void ready_priority_queue_cond_wait(task_ready_priority_queue_t *task_ready_pq)
 {
-	pthread_cond_wait(&ready_priority_queue_not_empty_cond,
-			&ready_priority_queue_mutex);
+	pthread_cond_wait(&task_ready_pq->trpq_not_empty_cond,
+			  &task_ready_pq->trpq_mutex);
 }
 
 void ready_priority_queue_signal(task_ready_priority_queue_t *task_ready_pq)
 {
-	pthread_cond_signal(&ready_priority_queue_not_empty_cond);
+	pthread_cond_signal(&task_ready_pq->trpq_not_empty_cond);
 }
 
 void ready_priority_queue_lock(task_ready_priority_queue_t *task_ready_pq)
 {
-	pthread_mutex_lock(&ready_priority_queue_mutex);
+	pthread_mutex_lock(&task_ready_pq->trpq_mutex);
 }
 
 void ready_priority_queue_unlock(task_ready_priority_queue_t *task_ready_pq)
 {
-	pthread_mutex_unlock(&ready_priority_queue_mutex);
+	pthread_mutex_unlock(&task_ready_pq->trpq_mutex);
 }
 
-int queue_task_to_rq(task_node_t *task_node)
-{
-	int	rc = -1;
-	int	signal = 0;
-
-	/**
-	 * no non-negative timer is specified, put the task
-	 * immediately on ready queue
-	 */
-	task_node->tn_task_common_ctx->tcc_state = TASK_READY;
-	ready_priority_queue_lock(&g_task_ready_priority_queue);
-	signal = ready_priority_queue_is_empty(&g_task_ready_priority_queue);
-	rc = ready_priority_queue_insert(&g_task_ready_priority_queue,
-			task_node);
-	ready_priority_queue_unlock(&g_task_ready_priority_queue);
-	if (rc) {
-		fprintf(stderr, "ERR: Task insertion in ready pq failed "
-				"with rc: %d\n", rc);
-		goto out;
-	}
-
-	if (signal)
-		pthread_cond_signal(&ready_priority_queue_not_empty_cond);
-
-out:
-	return rc;
-}

@@ -98,7 +98,32 @@ out:
 	return rc;
 }
 
+int queue_task_to_rq(task_node_t *task_node)
+{
+	int	rc = -1;
+	int	signal = 0;
 
+	/**
+	 * no non-negative timer is specified, put the task
+	 * immediately on ready queue
+	 */
+	task_node->tn_task_common_ctx->tcc_state = TASK_READY;
+	ready_priority_queue_lock(&g_task_ready_priority_queue);
+	signal = ready_priority_queue_is_empty(&g_task_ready_priority_queue);
+	rc = ready_priority_queue_insert(&g_task_ready_priority_queue,
+			task_node);
+	ready_priority_queue_unlock(&g_task_ready_priority_queue);
+	if (rc) {
+		fprintf(stderr, "ERR: Task insertion in ready pq failed "
+				"with rc: %d\n", rc);
+		goto out;
+	}
+
+	if (signal)
+		ready_priority_queue_signal(&g_task_ready_priority_queue);
+out:
+	return rc;
+}
 
 cmd_handler_t cmd_table[NO_OF_CMDS] = {
 		{"add", add_task_cmd},
