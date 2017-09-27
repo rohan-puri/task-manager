@@ -1,4 +1,7 @@
 #include "task_manager_cmds.h"
+#include "priority_queue.h"
+
+
 
 void task1_fn(task_common_ctx_t *task_common_ctx, void *priv_data)
 {
@@ -27,7 +30,7 @@ void task2_fn(task_common_ctx_t *task_common_ctx, void *priv_data)
 	sleep(4);
 
 	task_yield();
-	fprintf(stdout, "TASK2: 	2\n");
+	fprintf(stdout, "TASK2:  2\n");
 
 	task_exit();
 }
@@ -294,7 +297,7 @@ int list_all_tasks_cmd(char *cmd_args[], int no_of_args, int efd)
 	pthread_mutex_unlock(&blocking_queue_mutex);
 
 	fprintf(stdout, "Listing all the ready tasks:\n");
-	pthread_mutex_lock(&ready_priority_queue_mutex);
+	ready_priority_queue_lock(&g_task_ready_priority_queue);
 	for (i = 0; i < g_task_ready_priority_queue.trpq_no_of_elements; i++) {
 		task = g_task_ready_priority_queue.trpq_task_arr[i];
 		fprintf(stdout, "Task_type: %s, prio: %d, state: %d\n",
@@ -302,7 +305,7 @@ int list_all_tasks_cmd(char *cmd_args[], int no_of_args, int efd)
 			task->tn_task_common_ctx->tcc_priority,
 			task->tn_task_common_ctx->tcc_state);
 	}
-	pthread_mutex_unlock(&ready_priority_queue_mutex);
+	ready_priority_queue_unlock(&g_task_ready_priority_queue);
 
 	return 0;
 }
@@ -314,6 +317,8 @@ int test_cmd(char *cmd_args[], int no_of_args, int efd)
 {
 	int	i;
 	char	*add_task1_args[5];
+
+	test_value = 10;
 
 	if (no_of_args > 1) {
 		fprintf(stderr, "ERR: Invalid no. of arguments for test cmd, "
@@ -338,9 +343,10 @@ int test_cmd(char *cmd_args[], int no_of_args, int efd)
 		add_task_cmd(add_task1_args, 5, efd); 
 	}
 
-	/** Add sleep for tasks to be completed */
-	sleep(70);
+	pthread_cond_wait(&test_cond, &test_mutex);
+
 	assert(total_tasks_submitted == total_tasks_executed);
+	fprintf(stdout, "Test run completed successfully\n");
 
 	return 0;
 }

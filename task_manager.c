@@ -5,7 +5,11 @@
 long	total_tasks_submitted;
 long	total_tasks_executed;
 
-pthread_key_t	thread_key;
+pthread_mutex_t		test_mutex;
+pthread_cond_t		test_cond;
+int			test_value; /** No of tasks submitted & executed */
+
+pthread_key_t		thread_key;
 
 /**
  * Global task ready priority queue
@@ -169,10 +173,7 @@ void *task_executor(void *args)
 		 */
 		ready_priority_queue_unlock(&g_task_ready_priority_queue);
 
-		//memset(&task_node->tn_context, 0, sizeof(task_node->tn_context));
-
 		assert(task_node->tn_task_common_ctx->tcc_state != TASK_COMPLETED);
-
 		fprintf(stdout, "Thread no: %d, executing task with priority: %d\n",
 				*thread_id,
 				task_node->tn_task_common_ctx->tcc_priority);
@@ -185,15 +186,19 @@ void *task_executor(void *args)
 			    &task_node->tn_context);
 
 		thread_info->running_task = NULL;
+		if (task_node->tn_task_common_ctx->tcc_state == TASK_COMPLETED) {
+			/**
+			 * Release all task resources for this task
+			 */
+			free(task_node->tn_task_common_ctx);
+			free(task_node->tn_private_data);
+			free(task_node);
+
+			if (total_tasks_executed == test_value)
+				pthread_cond_signal(&test_cond);
+		}
 	}
-	if (task_node->tn_task_common_ctx->tcc_state == TASK_COMPLETED) {
-		/**
-		 * Release all task resources for this task
-		 */
-		free(task_node->tn_task_common_ctx);
-		free(task_node->tn_private_data);
-		free(task_node);
-	}
+
 }
 
 int globals_init(void)
@@ -212,6 +217,12 @@ int globals_init(void)
 	TAILQ_INIT(&g_task_blocking_queue);
 	pthread_mutex_init(&blocking_queue_mutex, NULL);
 	pthread_key_create(&thread_key, NULL);
+
+	/**
+	 * Initialize global variables for test cmd
+	 */
+	pthread_mutex_init(&test_mutex, NULL);
+	pthread_cond_init(&test_cond, NULL);
 
 	return rc;
 }

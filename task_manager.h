@@ -113,6 +113,9 @@ extern pthread_mutex_t			blocking_queue_mutex;
 extern struct task_bq			g_task_blocking_queue;
 extern pthread_mutex_t			ready_priority_queue_mutex;
 extern task_ready_priority_queue_t	g_task_ready_priority_queue;
+extern pthread_mutex_t			test_mutex;
+extern pthread_cond_t			test_cond;
+extern int				test_value;
 
 int queue_task_with_timer_to_bq(int efd, task_node_t *task_node);
 int queue_task_to_rq(task_node_t *task_node);
