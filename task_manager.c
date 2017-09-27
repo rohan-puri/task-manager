@@ -243,7 +243,6 @@ void *task_executor(void *args)
 {
 	task_node_t	*task_node = NULL;
 	int		*thread_id = (int *) args;
-	int		 rc = 0;
 	thread_info_t	*thread_info;
 
 	/**
@@ -417,7 +416,6 @@ int main(void)
 {
 	int			 efd = -1;
 	struct epoll_event	 event;
-	int			 priority = -1;
 	int			 rc = 0;
 	pthread_t		*tid = NULL;
 	int			 no_of_threads = 0;

@@ -314,7 +314,6 @@ int test_cmd(char *cmd_args[], int no_of_args, int efd)
 {
 	int	i;
 	char	*add_task1_args[5];
-	int	priority;
 
 	if (no_of_args > 1) {
 		fprintf(stderr, "ERR: Invalid no. of arguments for test cmd, "
