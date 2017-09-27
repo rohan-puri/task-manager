@@ -1,6 +1,18 @@
 #ifndef TASK_MANAGER_H
 #define TASK_MANAGER_H
 
+#include <stdio.h>
+#include <sys/epoll.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <errno.h>
+#include <sys/queue.h>
+#include <pthread.h>
+#include <sys/timerfd.h>
+#include <assert.h>
+#include <ucontext.h>
+
 #define CMD_LINE_LEN			(100)
 #define NO_OF_CMDS			(3)
 #define NO_OF_TASK_TYPES		(3)
@@ -87,5 +99,20 @@ typedef struct {
 	task_node_t	*running_task;
 	ucontext_t	thread_context;
 } thread_info_t;
+
+void task_yield(void);
+void task_exit(void);
+
+TAILQ_HEAD(task_bq, task_node);
+
+extern long				total_tasks_submitted;
+extern long				total_tasks_executed;
+extern pthread_mutex_t			blocking_queue_mutex;
+extern struct task_bq			g_task_blocking_queue;
+extern pthread_mutex_t			ready_priority_queue_mutex;
+extern task_ready_priority_queue_t	g_task_ready_priority_queue;
+
+int queue_task_with_timer_to_bq(int efd, task_node_t *task_node);
+int queue_task_to_rq(task_node_t *task_node);
 
 #endif /** TASK_MANAGER_H */
