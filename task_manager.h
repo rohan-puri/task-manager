@@ -5,8 +5,10 @@
 #define NO_OF_CMDS			(3)
 #define NO_OF_TASK_TYPES		(3)
 #define CMD_NAME_LEN			(10)
-#define THREAD_EXEC_DELAY		(45)	/** This value is in seconds */
+#define THREAD_EXEC_DELAY		(15)	/** This value is in seconds */
 #define READY_PRIORITY_MAX_QUEUE_DEPTH	(100)
+#define MAX_CMD_ARGS			(7)	/** This count includes cmd name too */
+#define	USER_STACK_SIZE			(64 * 1024) /** in bytes */
 
 typedef struct {
 	int	t1_args1;
@@ -27,6 +29,7 @@ typedef enum {
 	TASK_BLOCKED = 0,
 	TASK_READY,
 	TASK_RUNNING,
+	TASK_YIELD,
 	TASK_COMPLETED
 } task_state;
 
@@ -39,10 +42,11 @@ typedef struct {
 
 struct task_node {
 	task_common_ctx_t		*tn_task_common_ctx;
-	int	(*tn_task_fn)		(task_common_ctx_t *, void *);
+	void	(*tn_task_fn)		(task_common_ctx_t *, void *);
 	void				*tn_private_data;
 	TAILQ_ENTRY(task_node)		tn_blocking_queue;
 	int				tn_tfd;
+	ucontext_t			tn_context;
 };
 
 typedef struct task_node task_node_t;
@@ -78,6 +82,10 @@ typedef struct {
 	int 	(*task_type_handler) (char *cmd_args[], int no_of_args, task_node_t *task_node);
 } task_type_handler_t;
 
+
+typedef struct {
+	task_node_t	*running_task;
+	ucontext_t	thread_context;
+} thread_info_t;
+
 #endif /** TASK_MANAGER_H */
-
-
