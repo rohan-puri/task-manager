@@ -295,7 +295,8 @@ int task3_handler(char *cmd_args[], int no_of_args, task_node_t *task_node)
 
 	if (no_of_args != NO_OF_ARGS_FOR_TASK3) {
 		fprintf(stderr, "ERR: No of args expected for task3 are %d, "
-				"while given are %d\n", NO_OF_ARGS_FOR_TASK3, no_of_args);
+				"while given are %d\n", NO_OF_ARGS_FOR_TASK3,
+				 no_of_args);
 		rc = -EINVAL;
 		goto out;
 	}
@@ -383,12 +384,15 @@ out:
 int queue_task_to_rq(task_node_t *task_node)
 {
 	int	rc = -1;
+	int	signal = 0;
+
 	/**
 	 * no non-negative timer is specified, put the task
 	 * immediately on ready queue
 	 */
 	task_node->tn_task_common_ctx->tcc_state = TASK_READY;
 	pthread_mutex_lock(&ready_priority_queue_mutex);
+	signal = ready_priority_queue_is_empty(&g_task_ready_priority_queue);
 	rc = ready_priority_queue_insert(&g_task_ready_priority_queue,
 			task_node);
 	pthread_mutex_unlock(&ready_priority_queue_mutex);
@@ -397,7 +401,9 @@ int queue_task_to_rq(task_node_t *task_node)
 				"with rc: %d\n", rc);
 		goto out;
 	}
-	pthread_cond_broadcast(&ready_priority_queue_not_empty_cond);
+
+	if (signal)
+		pthread_cond_signal(&ready_priority_queue_not_empty_cond);
 
 out:
 	return rc;
@@ -535,6 +541,8 @@ out:
  */
 int list_all_tasks(char *cmd_args[], int no_of_args, int efd)
 {
+
+	
 	return 0;
 }
 
@@ -679,6 +687,7 @@ void timerfd_event_handler(int efd, struct epoll_event *event)
 	task_node_t	*task = NULL;
 	task_node_t	*task_next = NULL;
 	int		 rc = -1;
+	int		 signal = 0;
 
 	/**
 	 * Remove this timer_fd from the epoll watch list
@@ -701,18 +710,19 @@ void timerfd_event_handler(int efd, struct epoll_event *event)
 			TAILQ_REMOVE(&g_task_blocking_queue,
 					task, tn_blocking_queue);
 			task->tn_task_common_ctx->tcc_state = TASK_READY;
+			signal = ready_priority_queue_is_empty(&g_task_ready_priority_queue);
 			rc = ready_priority_queue_insert(&g_task_ready_priority_queue, task);
 			if (rc) {
 				fprintf(stderr, "ERR: Task insertion in ready pq failed with rc: %d\n", rc);
 			}
 			break;
-
 		}
 	}
 
 	pthread_mutex_unlock(&ready_priority_queue_mutex);
 	pthread_mutex_unlock(&blocking_queue_mutex);
-	pthread_cond_broadcast(&ready_priority_queue_not_empty_cond);
+	if (signal)
+		pthread_cond_signal(&ready_priority_queue_not_empty_cond);
 
 	/**
 	 * Timerfd event handling completed, close the timerfd
