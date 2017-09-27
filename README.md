@@ -30,7 +30,10 @@ How to compile & run?
 
 Compilation:
 On command line run following command,
-#gcc task_manager.c -o task_manager -lpthread
+make
+
+for cleaning up built files command is,
+make clean
 
 Run:
 #./task_manager
