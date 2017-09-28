@@ -1,8 +1,6 @@
 #include "task_manager_cmds.h"
 #include "priority_queue.h"
 
-
-
 void task1_fn(task_common_ctx_t *task_common_ctx, void *priv_data)
 {
 
@@ -23,24 +21,30 @@ void task1_fn(task_common_ctx_t *task_common_ctx, void *priv_data)
 
 void task2_fn(task_common_ctx_t *task_common_ctx, void *priv_data)
 {
-	fprintf(stdout, "TASK2:  1\n");
+	fprintf(stdout, "TASK2:  1, priority: %d\n",
+		task_common_ctx->tcc_priority);
 	/**
 	 * Simulate task2 completion time.
 	 */
 	sleep(4);
 
 	task_yield();
-	fprintf(stdout, "TASK2:  2\n");
+	fprintf(stdout, "TASK2:  2, priority: %d\n",
+		task_common_ctx->tcc_priority);
 
 	task_exit();
 }
 
 void task3_fn(task_common_ctx_t *task_common_ctx, void *priv_data)
 {
+	fprintf(stdout, "TASK3:  1, priority: %d\n",
+		task_common_ctx->tcc_priority);
 	/**
-	 * Simulate task2 completion time.
+	 * Simulate task3 completion time.
 	 */
 	sleep(8);
+	fprintf(stdout, "TASK3:  2, priority: %d\n",
+		task_common_ctx->tcc_priority);
 
 	task_exit();
 }
@@ -318,6 +322,8 @@ int test_cmd(char *cmd_args[], int no_of_args, int efd)
 	int	i;
 	char	*add_task1_args[5];
 
+	total_tasks_submitted = 0;
+	total_tasks_executed = 0;
 	test_value = 10;
 
 	if (no_of_args > 1) {

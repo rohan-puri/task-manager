@@ -19,6 +19,6 @@ void ready_priority_queue_unlock(task_ready_priority_queue_t *task_ready_pq);
 
 void ready_priority_queue_cond_wait(task_ready_priority_queue_t *task_ready_pq);
 
-void ready_priority_queue_signal(task_ready_priority_queue_t *task_ready_pq);
+void ready_priority_queue_broadcast(task_ready_priority_queue_t *task_ready_pq);
 
 #endif /** PRIORITY_QUEUE_H */

@@ -124,7 +124,7 @@ int queue_task_to_rq(task_node_t *task_node)
 	}
 
 	if (signal)
-		ready_priority_queue_signal(&g_task_ready_priority_queue);
+		ready_priority_queue_broadcast(&g_task_ready_priority_queue);
 out:
 	return rc;
 }
@@ -267,7 +267,7 @@ void timerfd_event_handler(int efd, struct epoll_event *event)
 	ready_priority_queue_unlock(&g_task_ready_priority_queue);
 	pthread_mutex_unlock(&blocking_queue_mutex);
 	if (signal)
-		ready_priority_queue_signal(&g_task_ready_priority_queue);
+		ready_priority_queue_broadcast(&g_task_ready_priority_queue);
 
 	/**
 	 * Timerfd event handling completed, close the timerfd
