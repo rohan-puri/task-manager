@@ -236,7 +236,7 @@ int add_task_cmd(char *cmd_args[], int no_of_args, int efd)
 				fprintf(stderr, "ERR: cmd:%s failed with rc:%d\n",
 						cmd_args[0], rc);
 			}
-			break;
+			goto out;
 		}
 	}
 	
